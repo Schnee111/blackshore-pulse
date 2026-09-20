@@ -10,9 +10,9 @@ interface TargetEndpoint {
 }
 
 const TARGETS: TargetEndpoint[] = [
-  { id: "monograph", name: "Monograph Showcase", url: "https://aeter.my.id", expectedStatus: 200 },
-  { id: "thesis", name: "Thesis Knowledge Platform", url: "https://thesis.aeter.my.id", expectedStatus: 200 },
-  { id: "weather", name: "Weather Dashboard API", url: "https://aeter.my.id/api/health", expectedStatus: 200 },
+  { id: "monograph", name: "Monograph Showcase", url: "https://schnee.web.id", expectedStatus: 200 },
+  { id: "thesis", name: "Thesis Knowledge Platform", url: "https://thesis.schnee.web.id", expectedStatus: 200 },
+  { id: "9router", name: "9router AI Gateway", url: "https://9router.aeter.my.id/healthz", expectedStatus: 200 },
   { id: "sentinel", name: "Sentinel Webhook Endpoint", url: "https://aeter.my.id/api/github-webhook", expectedStatus: 200 },
   { id: "authgate", name: "Auth Gate Edge Node", url: "https://aeter.my.id/api/auth-gate", expectedStatus: 200 }
 ];
