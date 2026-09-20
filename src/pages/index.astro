@@ -32,11 +32,21 @@
           </div>
           <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-primary mt-1">Blackshore Pulse</h1>
         </div>
-        <div class="flex items-center gap-4">
+        <div class="flex items-center gap-3">
           <div class="px-3.5 py-1.5 rounded-lg border border-surface-border bg-surface backdrop-blur-md flex items-center gap-2">
             <span class="text-xs text-primary-subtle font-mono">EDGE:</span>
             <span id="edge-region" class="text-xs font-mono font-semibold text-primary">sin-edge-01</span>
           </div>
+          <a
+            href="/api/export"
+            target="_blank"
+            class="px-3.5 py-1.5 rounded-md border border-surface-border bg-surface hover:border-surface-hover text-primary font-mono text-xs transition-all flex items-center gap-1.5 cursor-pointer"
+          >
+            <svg class="w-3.5 h-3.5 text-primary-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"></path>
+            </svg>
+            Export JSON
+          </a>
           <button
             id="refresh-btn"
             class="px-4 py-1.5 rounded-md bg-primary text-substrate font-medium text-xs hover:bg-white transition-all active:scale-95 cursor-pointer"
@@ -77,8 +87,8 @@
           <span class="text-xs text-primary-muted font-mono" id="probe-status-label">Auto-refresh: 15s</span>
         </div>
         <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-          <!-- Dynamically populated or rendered fallback -->
-          <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl flex flex-col justify-between h-44 animate-pulse">
+          <!-- Dynamically populated -->
+          <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl flex flex-col justify-between h-48 animate-pulse">
             <div class="h-4 bg-white/10 rounded w-1/3"></div>
             <div class="h-8 bg-white/10 rounded w-1/2"></div>
             <div class="h-4 bg-white/10 rounded w-2/3"></div>
@@ -92,6 +102,36 @@
     </footer>
 
     <script>
+      const latencyHistory: Record<string, number[]> = {};
+
+      function generateSparklineSvg(history: number[], color: string): string {
+        if (!history || history.length < 2) return '';
+        const min = Math.min(...history, 10);
+        const max = Math.max(...history, 100);
+        const range = max - min || 1;
+        const width = 120;
+        const height = 24;
+        
+        const points = history.map((val, idx) => {
+          const x = (idx / (history.length - 1)) * width;
+          const y = height - ((val - min) / range) * (height - 6) - 3;
+          return `${x.toFixed(1)},${y.toFixed(1)}`;
+        }).join(' ');
+
+        return `
+          <svg class="w-28 h-6 overflow-visible" viewBox="0 0 ${width} ${height}">
+            <polyline
+              fill="none"
+              stroke="${color}"
+              stroke-width="1.5"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              points="${points}"
+            />
+          </svg>
+        `;
+      }
+
       async function fetchTelemetry() {
         const refreshBtn = document.getElementById('refresh-btn');
         const statusLabel = document.getElementById('probe-status-label');
@@ -132,12 +172,21 @@
 
         if (gridEl && Array.isArray(services)) {
           gridEl.innerHTML = services.map(s => {
+            if (!latencyHistory[s.id]) {
+              latencyHistory[s.id] = [s.latencyMs, s.latencyMs, s.latencyMs];
+            } else {
+              latencyHistory[s.id].push(s.latencyMs);
+              if (latencyHistory[s.id].length > 10) latencyHistory[s.id].shift();
+            }
+
             const isOp = s.status === 'operational';
             const isWarn = s.status === 'degraded';
             const colorClass = isOp ? 'text-accent-normal border-accent-normal/30 bg-accent-normal/10' :
                                isWarn ? 'text-accent-warn border-accent-warn/30 bg-accent-warn/10' :
                                'text-accent-crit border-accent-crit/30 bg-accent-crit/10';
             const dotClass = isOp ? 'bg-accent-normal' : isWarn ? 'bg-accent-warn' : 'bg-accent-crit';
+            const strokeColor = isOp ? '#2E9E6B' : isWarn ? '#D99A2B' : '#D4553F';
+            const sparkline = generateSparklineSvg(latencyHistory[s.id], strokeColor);
             
             return `
               <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl hover:border-surface-hover transition-all flex flex-col justify-between">
@@ -152,8 +201,13 @@
                   <h3 class="text-base font-semibold text-primary mt-2">${s.name}</h3>
                   <p class="text-xs text-primary-muted font-mono truncate mt-1">${s.url}</p>
                 </div>
+
+                <div class="mt-4 flex items-center justify-between">
+                  <span class="text-xs text-primary-subtle font-mono">LATENCY TREND</span>
+                  ${sparkline}
+                </div>
                 
-                <div class="mt-4 pt-4 border-t border-surface-border flex items-center justify-between">
+                <div class="mt-3 pt-3 border-t border-surface-border flex items-center justify-between">
                   <div class="flex items-center gap-2">
                     <span class="text-xs text-primary-subtle font-mono">STATUS:</span>
                     <span class="text-xs font-mono font-semibold text-primary tabular-nums">${s.httpCode || 'ERR'}</span>
