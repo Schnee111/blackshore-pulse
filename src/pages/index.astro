@@ -1,0 +1,180 @@
+---
+// Blackshore Pulse Mission Control Telemetry Dashboard
+---
+
+<html lang="en" class="dark">
+  <head>
+    <meta charset="utf-8" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blackshore Pulse | Infrastructure Cockpit</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="bg-substrate text-primary font-sans antialiased min-h-screen relative overflow-x-hidden selection:bg-accent-normal/20">
+    <!-- Ambient organic glow -->
+    <div class="fixed inset-0 pointer-events-none z-0">
+      <div class="absolute -top-40 left-1/4 w-[600px] h-[600px] bg-emerald-500/5 rounded-full blur-[140px]"></div>
+      <div class="absolute top-1/2 right-10 w-[500px] h-[500px] bg-blue-500/5 rounded-full blur-[160px]"></div>
+    </div>
+
+    <main class="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 space-y-8">
+      <!-- Header Bar -->
+      <header class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-surface-border pb-6">
+        <div>
+          <div class="flex items-center gap-3">
+            <span class="inline-flex h-2.5 w-2.5 rounded-full bg-accent-normal animate-pulse"></span>
+            <span class="text-xs uppercase tracking-wider text-primary-muted font-mono font-medium">Telemetry Mission Control</span>
+          </div>
+          <h1 class="text-2xl sm:text-3xl font-bold tracking-tight text-primary mt-1">Blackshore Pulse</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="px-3.5 py-1.5 rounded-lg border border-surface-border bg-surface backdrop-blur-md flex items-center gap-2">
+            <span class="text-xs text-primary-subtle font-mono">EDGE:</span>
+            <span id="edge-region" class="text-xs font-mono font-semibold text-primary">sin-edge-01</span>
+          </div>
+          <button
+            id="refresh-btn"
+            class="px-4 py-1.5 rounded-md bg-primary text-substrate font-medium text-xs hover:bg-white transition-all active:scale-95 cursor-pointer"
+          >
+            Probe Now
+          </button>
+        </div>
+      </header>
+
+      <!-- System Summary Cards -->
+      <section class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl">
+          <span class="text-xs text-primary-subtle uppercase tracking-wider font-mono">Monitored Services</span>
+          <div id="metric-total" class="text-3xl font-bold font-mono tracking-tight text-primary mt-2 tabular-nums">5</div>
+          <span class="text-xs text-primary-muted mt-1 block">Active targets</span>
+        </div>
+        <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl">
+          <span class="text-xs text-primary-subtle uppercase tracking-wider font-mono">System Health</span>
+          <div id="metric-health" class="text-3xl font-bold font-mono tracking-tight text-accent-normal mt-2 tabular-nums">100%</div>
+          <span class="text-xs text-primary-muted mt-1 block">Global operational ratio</span>
+        </div>
+        <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl">
+          <span class="text-xs text-primary-subtle uppercase tracking-wider font-mono">Avg Latency</span>
+          <div id="metric-latency" class="text-3xl font-bold font-mono tracking-tight text-primary mt-2 tabular-nums">-- ms</div>
+          <span class="text-xs text-primary-muted mt-1 block">Edge to origin probe</span>
+        </div>
+        <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl">
+          <span class="text-xs text-primary-subtle uppercase tracking-wider font-mono">Last Cycle</span>
+          <div id="metric-time" class="text-sm font-semibold font-mono text-primary mt-3 tabular-nums truncate">Just now</div>
+          <span class="text-xs text-primary-muted mt-1 block">Probe timestamp</span>
+        </div>
+      </section>
+
+      <!-- Target Telemetry Cards -->
+      <section>
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-lg font-semibold tracking-tight text-primary">Live Endpoints Status</h2>
+          <span class="text-xs text-primary-muted font-mono" id="probe-status-label">Auto-refresh: 15s</span>
+        </div>
+        <div id="services-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <!-- Dynamically populated or rendered fallback -->
+          <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl flex flex-col justify-between h-44 animate-pulse">
+            <div class="h-4 bg-white/10 rounded w-1/3"></div>
+            <div class="h-8 bg-white/10 rounded w-1/2"></div>
+            <div class="h-4 bg-white/10 rounded w-2/3"></div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="border-t border-surface-border mt-16 py-6 text-center text-xs text-primary-subtle font-mono">
+      Blackshore Pulse Telemetry Cockpit &copy; 2026. Fail-closed architecture.
+    </footer>
+
+    <script>
+      async function fetchTelemetry() {
+        const refreshBtn = document.getElementById('refresh-btn');
+        const statusLabel = document.getElementById('probe-status-label');
+        if (refreshBtn) refreshBtn.textContent = 'Probing...';
+        
+        try {
+          const res = await fetch('/api/pulse');
+          if (!res.ok) throw new Error('Probe API returned ' + res.status);
+          const data = await res.json();
+          renderTelemetry(data);
+          if (statusLabel) statusLabel.textContent = 'Updated ' + new Date().toLocaleTimeString();
+        } catch (e) {
+          console.error('Telemetry fetch failed:', e);
+          if (statusLabel) statusLabel.textContent = 'Probe check failed';
+        } finally {
+          if (refreshBtn) refreshBtn.textContent = 'Probe Now';
+        }
+      }
+
+      function renderTelemetry(data: any) {
+        const { summary, services } = data;
+        const totalEl = document.getElementById('metric-total');
+        const healthEl = document.getElementById('metric-health');
+        const latencyEl = document.getElementById('metric-latency');
+        const timeEl = document.getElementById('metric-time');
+        const gridEl = document.getElementById('services-grid');
+
+        if (totalEl) totalEl.textContent = String(summary.total);
+        if (latencyEl) latencyEl.textContent = summary.avgLatencyMs + ' ms';
+        if (timeEl) timeEl.textContent = new Date(data.timestamp).toLocaleTimeString();
+        
+        const healthRatio = summary.total > 0 ? Math.round((summary.operational / summary.total) * 100) : 0;
+        if (healthEl) {
+          healthEl.textContent = healthRatio + '%';
+          healthEl.className = 'text-3xl font-bold font-mono tracking-tight mt-2 tabular-nums ' + 
+            (healthRatio === 100 ? 'text-accent-normal' : healthRatio > 50 ? 'text-accent-warn' : 'text-accent-crit');
+        }
+
+        if (gridEl && Array.isArray(services)) {
+          gridEl.innerHTML = services.map(s => {
+            const isOp = s.status === 'operational';
+            const isWarn = s.status === 'degraded';
+            const colorClass = isOp ? 'text-accent-normal border-accent-normal/30 bg-accent-normal/10' :
+                               isWarn ? 'text-accent-warn border-accent-warn/30 bg-accent-warn/10' :
+                               'text-accent-crit border-accent-crit/30 bg-accent-crit/10';
+            const dotClass = isOp ? 'bg-accent-normal' : isWarn ? 'bg-accent-warn' : 'bg-accent-crit';
+            
+            return `
+              <div class="p-5 rounded-panel border border-surface-border bg-surface backdrop-blur-xl hover:border-surface-hover transition-all flex flex-col justify-between">
+                <div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-xs uppercase tracking-wider text-primary-subtle font-mono">${s.id}</span>
+                    <span class="px-2 py-0.5 rounded-full text-xs font-mono font-medium border ${colorClass} flex items-center gap-1.5">
+                      <span class="w-1.5 h-1.5 rounded-full ${dotClass}"></span>
+                      ${s.status.toUpperCase()}
+                    </span>
+                  </div>
+                  <h3 class="text-base font-semibold text-primary mt-2">${s.name}</h3>
+                  <p class="text-xs text-primary-muted font-mono truncate mt-1">${s.url}</p>
+                </div>
+                
+                <div class="mt-4 pt-4 border-t border-surface-border flex items-center justify-between">
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-primary-subtle font-mono">STATUS:</span>
+                    <span class="text-xs font-mono font-semibold text-primary tabular-nums">${s.httpCode || 'ERR'}</span>
+                  </div>
+                  <div class="flex items-center gap-2">
+                    <span class="text-xs text-primary-subtle font-mono">LATENCY:</span>
+                    <span class="text-xs font-mono font-semibold text-primary tabular-nums">${s.latencyMs} ms</span>
+                  </div>
+                </div>
+              </div>
+            `;
+          }).join('');
+        }
+      }
+
+      document.addEventListener('DOMContentLoaded', () => {
+        const btn = document.getElementById('refresh-btn');
+        if (btn) btn.addEventListener('click', fetchTelemetry);
+        fetchTelemetry();
+        setInterval(fetchTelemetry, 15000);
+      });
+    </script>
+  </body>
+</html>
