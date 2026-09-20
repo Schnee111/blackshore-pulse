@@ -14,38 +14,89 @@ const TARGETS: TargetEndpoint[] = [
 ];
 
 async function probeTarget(target: TargetEndpoint) {
-  // CHAOS BUG: unhandled rejection without try-catch block
-  const res = await fetch(target.url);
-  const latencyMs = 50;
-  return {
-    id: target.id,
-    name: target.name,
-    url: target.url,
-    status: res.status === 200 ? "operational" : "degraded",
-    httpCode: res.status,
-    latencyMs,
-    lastChecked: new Date().toISOString()
-  };
+  const start = performance.now();
+  try {
+    const res = await fetch(target.url, {
+      method: "GET",
+      signal: AbortSignal.timeout(3000),
+      headers: {
+        "User-Agent": "BlackshorePulse/1.0.0"
+      }
+    });
+
+    const latencyMs = Math.round(performance.now() - start);
+    const isOperational = res.status === target.expectedStatus || (res.status >= 200 && res.status < 400);
+
+    return {
+      id: target.id,
+      name: target.name,
+      url: target.url,
+      status: isOperational ? "operational" : "degraded",
+      httpCode: res.status,
+      latencyMs,
+      lastChecked: new Date().toISOString()
+    };
+  } catch (err: any) {
+    const latencyMs = Math.round(performance.now() - start);
+    return {
+      id: target.id,
+      name: target.name,
+      url: target.url,
+      status: "critical",
+      httpCode: 0,
+      latencyMs,
+      error: err?.message || "Connection refused or probe timed out",
+      lastChecked: new Date().toISOString()
+    };
+  }
 }
 
 export async function onRequestGet(): Promise<Response> {
-  // Raw Promise.all will fail if any target throws or refuses connection
-  const services = await Promise.all(TARGETS.map(t => probeTarget(t)));
+  const probePromises = TARGETS.map((target) => probeTarget(target));
+  const results = await Promise.allSettled(probePromises);
+
+  const services = results.map((r, i) => {
+    if (r.status === "fulfilled") {
+      return r.value;
+    }
+    return {
+      id: TARGETS[i].id,
+      name: TARGETS[i].name,
+      url: TARGETS[i].url,
+      status: "critical",
+      httpCode: 0,
+      latencyMs: 3000,
+      error: "Promise unhandled execution error",
+      lastChecked: new Date().toISOString()
+    };
+  });
+
+  const operationalCount = services.filter((s) => s.status === "operational").length;
+  const degradedCount = services.filter((s) => s.status === "degraded").length;
+  const criticalCount = services.filter((s) => s.status === "critical").length;
+  
+  const validLatencies = services.filter((s) => s.latencyMs > 0).map((s) => s.latencyMs);
+  const avgLatency = validLatencies.length
+    ? Math.round(validLatencies.reduce((acc, curr) => acc + curr, 0) / validLatencies.length)
+    : 0;
 
   const payload = {
     timestamp: new Date().toISOString(),
     summary: {
       total: services.length,
-      operational: services.filter(s => s.status === "operational").length,
-      degraded: 0,
-      critical: 0,
-      avgLatencyMs: 50
+      operational: operationalCount,
+      degraded: degradedCount,
+      critical: criticalCount,
+      avgLatencyMs: avgLatency
     },
     services
   };
 
   return new Response(JSON.stringify(payload, null, 2), {
     status: 200,
-    headers: { "Content-Type": "application/json" }
+    headers: {
+      "Content-Type": "application/json",
+      "Cache-Control": "no-store, max-age=0"
+    }
   });
 }
