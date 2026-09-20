@@ -31,6 +31,9 @@ jobs:
       - name: Build Project
         run: pnpm run build
 
+      - name: Runtime Smoke QA
+        run: pnpm run test:smoke
+
       - name: Deploy to Cloudflare Pages
         uses: cloudflare/wrangler-action@v3
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
