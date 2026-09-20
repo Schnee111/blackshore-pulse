@@ -30,3 +30,11 @@ jobs:
 
       - name: Build Project
         run: pnpm run build
+
+      - name: Deploy to Cloudflare Pages
+        uses: cloudflare/wrangler-action@v3
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy dist --project-name=blackshore-pulse

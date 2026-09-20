@@ -8,9 +8,9 @@ interface TargetEndpoint {
 const TARGETS: TargetEndpoint[] = [
   { id: "monograph", name: "Monograph Showcase", url: "https://aeter.my.id", expectedStatus: 200 },
   { id: "thesis", name: "Thesis Knowledge Platform", url: "https://thesis.aeter.my.id", expectedStatus: 200 },
-  { id: "9router", name: "9router AI Gateway", url: "http://127.0.0.1:20128/health", expectedStatus: 200 },
-  { id: "sentinel", name: "Sentinel Webhook Receiver", url: "http://127.0.0.1:8798/api/github-webhook", expectedStatus: 200 },
-  { id: "mempalace", name: "MemPalace L2 Knowledge Engine", url: "http://127.0.0.1:18800/api/status", expectedStatus: 200 }
+  { id: "weather", name: "Weather Dashboard API", url: "https://aeter.my.id/api/health", expectedStatus: 200 },
+  { id: "sentinel", name: "Sentinel Webhook Endpoint", url: "https://aeter.my.id/api/github-webhook", expectedStatus: 200 },
+  { id: "authgate", name: "Auth Gate Edge Node", url: "https://aeter.my.id/api/auth-gate", expectedStatus: 200 }
 ];
 
 async function probeTarget(target: TargetEndpoint) {
@@ -75,9 +75,12 @@ export async function onRequestGet(): Promise<Response> {
   const degradedCount = services.filter((s) => s.status === "degraded").length;
   const criticalCount = services.filter((s) => s.status === "critical").length;
   
-  const validLatencies = services.filter((s) => s.latencyMs > 0).map((s) => s.latencyMs);
-  const avgLatency = validLatencies.length
-    ? Math.round(validLatencies.reduce((acc, curr) => acc + curr, 0) / validLatencies.length)
+  const operationalLatencies = services
+    .filter((s) => s.status === "operational" || s.status === "degraded")
+    .map((s) => s.latencyMs);
+
+  const avgLatency = operationalLatencies.length
+    ? Math.round(operationalLatencies.reduce((acc, curr) => acc + curr, 0) / operationalLatencies.length)
     : 0;
 
   const payload = {
