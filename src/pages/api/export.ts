@@ -1,4 +1,8 @@
-export async function onRequestGet(): Promise<Response> {
+import type { APIRoute } from 'astro';
+
+export const prerender = false;
+
+export const GET: APIRoute = async () => {
   const exportPayload = {
     schemaVersion: "1.0.0",
     exporter: "blackshore-pulse-edge",
@@ -20,4 +24,4 @@ export async function onRequestGet(): Promise<Response> {
       "Cache-Control": "no-store, max-age=0"
     }
   });
-}
+};

@@ -1,3 +1,7 @@
+import type { APIRoute } from 'astro';
+
+export const prerender = false;
+
 interface TargetEndpoint {
   id: string;
   name: string;
@@ -51,7 +55,7 @@ async function probeTarget(target: TargetEndpoint) {
   }
 }
 
-export async function onRequestGet(): Promise<Response> {
+export const GET: APIRoute = async () => {
   const probePromises = TARGETS.map((target) => probeTarget(target));
   const results = await Promise.allSettled(probePromises);
 
@@ -102,4 +106,4 @@ export async function onRequestGet(): Promise<Response> {
       "Cache-Control": "no-store, max-age=0"
     }
   });
-}
+};
